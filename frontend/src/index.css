@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --color-ink: #0a0e1f;
+  --color-panel: #121835;
+  --color-line: #252d57;
+  --color-sun: #ff7a59;
+  --color-amber: #ffc24b;
+  --color-mint: #3ee6b0;
+  --color-mist: #a9b1d6;
+  --color-sky: #5bc8ff;
+  --color-violet: #9b8cff;
+  --color-rose: #ff6b9a;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #0a0e1f;
+  color: #f3f5ff;
+  font-family: "DM Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.field {
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, rgba(255, 122, 89, 0.28), transparent 60%),
+    radial-gradient(45rem 28rem at 0% 20%, rgba(62, 230, 176, 0.12), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: auto, auto, 44px 44px, 44px 44px;
+}
+
+.sun-text {
+  background: linear-gradient(100deg, #ff7a59, #ffc24b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glass {
+  background: rgba(18, 24, 53, 0.72);
+  border: 1px solid #252d57;
+  backdrop-filter: blur(14px);
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.bob {
+  animation: bob 6s ease-in-out infinite;
+}
+
+.bob-slow {
+  animation: bob 8s ease-in-out infinite reverse;
+}
+
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+
+.shimmer {
+  background: linear-gradient(100deg, #ff7a59, #ffc24b, #3ee6b0, #ff7a59);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 7s linear infinite;
+}
+
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+.marquee {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+:focus-visible {
+  outline: 2px solid #ffc24b;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bob, .bob-slow, .shimmer, .marquee {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
