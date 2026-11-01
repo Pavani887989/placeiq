@@ -4,6 +4,7 @@ import Login from './pages/Login.jsx'
 import Layout from './components/Layout.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Applications from './pages/Applications.jsx'
+import ResumeAnalyzer from './pages/ResumeAnalyzer.jsx'
 import Soon from './pages/Soon.jsx'
 
 export default function App() {
@@ -14,7 +15,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/applications" element={<Applications />} />
-        <Route path="/resume" element={<Soon title="Resume Analyzer" />} />
+        <Route path="/resume" element={<ResumeAnalyzer />} />
         <Route path="/match" element={<Soon title="Job Match" />} />
         <Route path="/interviews" element={<Soon title="Interviews" />} />
         <Route path="/insights" element={<Soon title="Insights" />} />
