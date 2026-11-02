@@ -7,7 +7,7 @@ import Applications from './pages/Applications.jsx'
 import ResumeAnalyzer from './pages/ResumeAnalyzer.jsx'
 import JobMatch from './pages/JobMatch.jsx'
 import Interviews from './pages/Interviews.jsx'
-import Soon from './pages/Soon.jsx'
+import Insights from './pages/Insights.jsx'
 
 export default function App() {
   return (
@@ -20,7 +20,7 @@ export default function App() {
         <Route path="/resume" element={<ResumeAnalyzer />} />
         <Route path="/match" element={<JobMatch />} />
         <Route path="/interviews" element={<Interviews />} />
-        <Route path="/insights" element={<Soon title="Insights" />} />
+        <Route path="/insights" element={<Insights />} />
       </Route>
     </Routes>
   )
