@@ -1,0 +1,38 @@
+### 1. Login (gets the token)
+# @name login
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "Pass@1234"
+}
+
+### 2. Add an application
+# @name created
+POST http://localhost:8080/api/applications
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "company": "Helio Labs",
+  "role": "Backend Developer",
+  "workMode": "Remote"
+}
+
+### 3. List my applications
+GET http://localhost:8080/api/applications
+Authorization: Bearer {{login.response.body.token}}
+
+### 4. Move the application to Interview
+PATCH http://localhost:8080/api/applications/{{created.response.body.id}}/status
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "status": "Interview"
+}
+
+### 5. Delete it
+DELETE http://localhost:8080/api/applications/{{created.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
