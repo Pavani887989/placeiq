@@ -2,6 +2,7 @@ package com.placeiq.backend.controller;
 
 import com.placeiq.backend.model.User;
 import com.placeiq.backend.repository.UserRepository;
+import com.placeiq.backend.service.JwtService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -21,16 +22,23 @@ public class AuthController {
 
     private final UserRepository users;
     private final PasswordEncoder encoder;
+    private final JwtService jwt;
 
-    public AuthController(UserRepository users, PasswordEncoder encoder) {
+    public AuthController(UserRepository users, PasswordEncoder encoder, JwtService jwt) {
         this.users = users;
         this.encoder = encoder;
+        this.jwt = jwt;
     }
 
     public record RegisterRequest(
             @NotBlank String fullName,
             @NotBlank @Email String email,
             @NotBlank @Size(min = 8) String password) {
+    }
+
+    public record LoginRequest(
+            @NotBlank @Email String email,
+            @NotBlank String password) {
     }
 
     @PostMapping("/register")
@@ -48,5 +56,16 @@ public class AuthController {
                 "id", user.getId(),
                 "fullName", user.getFullName(),
                 "email", user.getEmail()));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+        return users.findByEmail(req.email().trim().toLowerCase())
+                .filter(u -> encoder.matches(req.password(), u.getPasswordHash()))
+                .<ResponseEntity<?>>map(u -> ResponseEntity.ok(Map.of(
+                        "token", jwt.create(u),
+                        "fullName", u.getFullName(),
+                        "email", u.getEmail())))
+                .orElseGet(() -> ResponseEntity.status(401).body(Map.of("error", "Invalid email or password")));
     }
 }
