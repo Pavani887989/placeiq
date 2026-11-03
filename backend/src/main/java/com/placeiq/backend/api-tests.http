@@ -36,3 +36,37 @@ Content-Type: application/json
 ### 5. Delete it
 DELETE http://localhost:8080/api/applications/{{created.response.body.id}}
 Authorization: Bearer {{login.response.body.token}}
+### 6. Add an interview
+# @name interview
+POST http://localhost:8080/api/interviews
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "company": "Helio Labs",
+  "role": "Backend Developer",
+  "roundType": "Technical",
+  "mode": "Video",
+  "interviewAt": "2026-11-10T10:00:00"
+}
+
+### 7. List my interviews
+GET http://localhost:8080/api/interviews
+Authorization: Bearer {{login.response.body.token}}
+
+### 8. Mark it done (send again to undo)
+PATCH http://localhost:8080/api/interviews/{{interview.response.body.id}}/done
+Authorization: Bearer {{login.response.body.token}}
+
+### 9. Save the prep checklist (5 means tasks 1 and 3 are ticked)
+PATCH http://localhost:8080/api/interviews/{{interview.response.body.id}}/prep
+Authorization: Bearer {{login.response.body.token}}
+Content-Type: application/json
+
+{
+  "prepDone": 5
+}
+
+### 10. Delete it
+DELETE http://localhost:8080/api/interviews/{{interview.response.body.id}}
+Authorization: Bearer {{login.response.body.token}}
