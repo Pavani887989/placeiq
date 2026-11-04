@@ -5,6 +5,7 @@ import {
   Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, X,
   CalendarClock, Sparkles, ShieldCheck,
 } from 'lucide-react'
+import { api, saveSession, clearSession } from '../api.js'
 
 const tips = [
   'Match any job post in seconds',
@@ -73,9 +74,12 @@ function MiniRing({ value = 82 }) {
 export default function Login() {
   const [mode, setMode] = useState('login')
   const [show, setShow] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [pw, setPw] = useState('')
   const [tip, setTip] = useState(0)
   const [state, setState] = useState('idle')
+  const [error, setError] = useState('')
   const isLogin = mode === 'login'
   const navigate = useNavigate()
 
@@ -84,10 +88,23 @@ export default function Login() {
     return () => clearInterval(t)
   }, [])
 
-  const submit = e => {
+  const submit = async e => {
     e.preventDefault()
+    setError('')
+    if (!isLogin && !name.trim()) { setError('Please enter your full name.'); return }
     setState('loading')
-    setTimeout(() => navigate('/dashboard'), 1200)
+    clearSession()
+    try {
+      if (!isLogin) {
+        await api('/api/auth/register', { method: 'POST', body: { fullName: name, email, password: pw } })
+      }
+      const data = await api('/api/auth/login', { method: 'POST', body: { email, password: pw } })
+      saveSession(data)
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message)
+      setState('idle')
+    }
   }
 
   return (
@@ -179,7 +196,7 @@ export default function Login() {
             <div className="relative mb-8 grid grid-cols-2 rounded-full border border-white/10 bg-white/5 p-1">
               <motion.span layout className="absolute inset-y-1 w-[calc(50%-4px)] rounded-full bg-gradient-to-r from-sun to-amber" style={{ left: isLogin ? 4 : 'calc(50%)' }} transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
               {['login', 'signup'].map(m => (
-                <button key={m} onClick={() => setMode(m)} className={`relative z-10 rounded-full py-2.5 text-sm font-semibold transition ${mode === m ? 'text-ink' : 'text-mist hover:text-white'}`}>
+                <button key={m} onClick={() => { setMode(m); setError('') }} className={`relative z-10 rounded-full py-2.5 text-sm font-semibold transition ${mode === m ? 'text-ink' : 'text-mist hover:text-white'}`}>
                   {m === 'login' ? 'Log in' : 'Sign up'}
                 </button>
               ))}
@@ -194,8 +211,8 @@ export default function Login() {
                   {isLogin ? 'Log in to pick up where you left off.' : 'Start tracking your placements in a minute.'}
                 </p>
 
-                {!isLogin && <Field icon={User} placeholder="Full name" />}
-                <Field icon={Mail} type="email" placeholder="Email address" />
+                {!isLogin && <Field icon={User} placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />}
+                <Field icon={Mail} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
                 <Field
                   icon={Lock}
                   type={show ? 'text' : 'password'}
@@ -216,8 +233,11 @@ export default function Login() {
                   </div>
                 )}
 
+                {error && <p className="rounded-xl bg-rose/10 px-4 py-3 text-sm text-rose">{error}</p>}
+
                 <button
-                  className="btn-sweep group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-sun via-amber to-sun py-4 font-semibold text-ink shadow-lg shadow-sun/30 transition hover:scale-[1.02]"
+                  disabled={state === 'loading'}
+                  className="btn-sweep group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-sun via-amber to-sun py-4 font-semibold text-ink shadow-lg shadow-sun/30 transition hover:scale-[1.02] disabled:opacity-70"
                 >
                   {state === 'loading' ? (
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
@@ -228,7 +248,7 @@ export default function Login() {
 
                 <p className="pt-1 text-center text-sm text-mist">
                   {isLogin ? 'New here? ' : 'Already have an account? '}
-                  <button type="button" onClick={() => setMode(isLogin ? 'signup' : 'login')} className="font-semibold text-amber hover:underline">
+                  <button type="button" onClick={() => { setMode(isLogin ? 'signup' : 'login'); setError('') }} className="font-semibold text-amber hover:underline">
                     {isLogin ? 'Create an account' : 'Log in'}
                   </button>
                 </p>

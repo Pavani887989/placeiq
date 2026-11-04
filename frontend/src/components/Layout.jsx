@@ -1,8 +1,9 @@
-import { NavLink, Outlet, Link } from 'react-router-dom'
+import { NavLink, Outlet, Link, Navigate } from 'react-router-dom'
 import {
   LayoutDashboard, Briefcase, FileSearch, Target,
   CalendarClock, LineChart, LogOut, Bell, Search,
 } from 'lucide-react'
+import { getToken, getUser, clearSession } from '../api.js'
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,6 +32,11 @@ function Item({ to, label, icon: Icon }) {
 }
 
 export default function Layout() {
+  if (!getToken()) return <Navigate to="/login" replace />
+
+  const user = getUser()
+  const name = (user && user.fullName) || 'User'
+
   return (
     <div className="min-h-screen bg-ink lg:flex">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-line bg-panel/60 p-5 backdrop-blur-xl lg:flex">
@@ -41,10 +47,10 @@ export default function Layout() {
           {nav.map(n => <Item key={n.to} {...n} />)}
         </nav>
         <div className="mt-auto rounded-2xl border border-line bg-ink/60 p-4">
-          <p className="font-display font-bold text-white">Keep going</p>
+          <p className="font-display font-bold text-white">Hi, {name.split(' ')[0]}</p>
           <p className="mt-1 text-xs text-mist">Learn Spring Boot next to lift your backend match.</p>
         </div>
-        <Link to="/login" className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-mist transition hover:bg-white/5 hover:text-white">
+        <Link to="/login" onClick={clearSession} className="mt-4 flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-mist transition hover:bg-white/5 hover:text-white">
           <LogOut size={18} /> Log out
         </Link>
       </aside>
@@ -64,7 +70,9 @@ export default function Layout() {
                 <Bell size={18} />
                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-sun" />
               </button>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sun to-amber font-display font-extrabold text-ink">P</div>
+              <div title={name} className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sun to-amber font-display font-extrabold text-ink">
+                {name[0].toUpperCase()}
+              </div>
             </div>
           </div>
           <div className="flex gap-1 overflow-x-auto px-3 pb-3 lg:hidden">
