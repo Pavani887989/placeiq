@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Plus, X, Search, Trash2, CalendarDays, GripVertical,
-  Send, Star, Video, Trophy, Ban, MapPin, Sparkles, Target, TrendingUp, Layers,
+  Send, Star, Video, Trophy, Ban, MapPin, Sparkles, Target, TrendingUp, Layers, AlertTriangle,
 } from 'lucide-react'
-
-const KEY = 'placeiq-apps-v2'
+import { api } from '../api.js'
 
 const columns = [
   { id: 'Applied', icon: Send, bar: 'bg-gradient-to-r from-sky to-violet', side: 'bg-sky', text: 'text-sky', tint: 'bg-sky/10', ring: 'ring-sky/60', top: 'from-sky/25', glow: 'shadow-sky/20' },
@@ -22,28 +21,9 @@ const modes = {
 }
 
 const stages = ['Applied', 'Shortlisted', 'Interview', 'Offer']
-
-const seed = [
-  { id: 1, company: 'Northwind', role: 'Java Developer', status: 'Applied', mode: 'Hybrid', date: '1 Nov' },
-  { id: 2, company: 'Kestrel', role: 'SQL Developer', status: 'Applied', mode: 'On-site', date: '30 Oct' },
-  { id: 3, company: 'Helio Labs', role: 'Backend Developer', status: 'Interview', mode: 'Remote', date: '28 Oct' },
-  { id: 4, company: 'Orbit Pay', role: 'Data Analyst', status: 'Shortlisted', mode: 'Hybrid', date: '27 Oct' },
-  { id: 5, company: 'Lumen', role: 'Full Stack Developer', status: 'Offer', mode: 'Remote', date: '25 Oct' },
-  { id: 6, company: 'Brightly', role: 'Power BI Analyst', status: 'Rejected', mode: 'On-site', date: '20 Oct' },
-]
-
 const grads = ['from-sky to-violet', 'from-sun to-amber', 'from-mint to-sky', 'from-violet to-rose', 'from-amber to-mint']
-
-function load() {
-  try {
-    const s = localStorage.getItem(KEY)
-    return s ? JSON.parse(s) : seed
-  } catch {
-    return seed
-  }
-}
-
 const input = 'w-full rounded-xl border border-line bg-ink/60 px-4 py-3 text-sm text-white placeholder:text-mist/60 focus:border-amber focus:outline-none'
+const fmt = d => new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 
 function Field({ label, children }) {
   return (
@@ -55,25 +35,29 @@ function Field({ label, children }) {
 }
 
 export default function Applications() {
-  const [apps, setApps] = useState(load)
+  const [apps, setApps] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [dragId, setDragId] = useState(null)
   const [over, setOver] = useState(null)
   const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState('')
   const [q, setQ] = useState('')
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState(null)
   const [form, setForm] = useState({ company: '', role: '', status: 'Applied', mode: 'Hybrid' })
 
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(apps))
-    } catch {
-      /* storage unavailable */
-    }
-  }, [apps])
+    let alive = true
+    api('/api/applications')
+      .then(d => { if (alive) { setApps(d); setLoading(false) } })
+      .catch(e => { if (alive) { setError(e.message); setLoading(false) } })
+    return () => { alive = false }
+  }, [])
 
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(''), 3200)
+    const t = setTimeout(() => setToast(null), 3200)
     return () => clearTimeout(t)
   }, [toast])
 
@@ -83,21 +67,48 @@ export default function Applications() {
   const active = total - count('Rejected') - count('Offer')
   const rate = total ? Math.round((count('Offer') / total) * 100) : 0
 
-  const move = (id, status) => {
+  const move = async (id, status) => {
     const app = apps.find(a => a.id === id)
     if (!app || app.status === status) return
+    const before = apps
     setApps(list => list.map(a => (a.id === id ? { ...a, status } : a)))
-    if (status === 'Offer') setToast('Offer from ' + app.company + '! Congratulations 🎉')
+    if (status === 'Offer') setToast({ t: 'Offer from ' + app.company + '! Congratulations 🎉' })
+    try {
+      await api('/api/applications/' + id + '/status', { method: 'PATCH', body: { status } })
+    } catch (e) {
+      setApps(before)
+      setToast({ t: e.message, bad: true })
+    }
   }
-  const remove = id => setApps(list => list.filter(a => a.id !== id))
 
-  const add = e => {
+  const remove = async id => {
+    const before = apps
+    setApps(list => list.filter(a => a.id !== id))
+    try {
+      await api('/api/applications/' + id, { method: 'DELETE' })
+    } catch (e) {
+      setApps(before)
+      setToast({ t: e.message, bad: true })
+    }
+  }
+
+  const add = async e => {
     e.preventDefault()
     if (!form.company.trim() || !form.role.trim()) return
-    const date = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-    setApps(list => [{ id: Date.now(), ...form, date }, ...list])
-    setForm({ company: '', role: '', status: 'Applied', mode: 'Hybrid' })
-    setOpen(false)
+    setSaving(true)
+    setFormError('')
+    try {
+      const created = await api('/api/applications', {
+        method: 'POST',
+        body: { company: form.company, role: form.role, status: form.status, workMode: form.mode },
+      })
+      setApps(list => [created, ...list])
+      setForm({ company: '', role: '', status: 'Applied', mode: 'Hybrid' })
+      setOpen(false)
+    } catch (err) {
+      setFormError(err.message)
+    }
+    setSaving(false)
   }
 
   const banner = [
@@ -115,19 +126,19 @@ export default function Applications() {
         <div className="relative flex flex-wrap items-end justify-between gap-5">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-black/25 px-3.5 py-1.5 text-xs font-medium text-amber backdrop-blur">
-              <Sparkles size={14} /> Drag cards between columns
+              <Sparkles size={14} /> Saved in your database
             </span>
             <h1 className="mt-3 font-display text-4xl font-extrabold text-white sm:text-5xl">
               Application <span className="shimmer">board</span>
             </h1>
-            <p className="mt-1.5 text-white/80">Every company, every stage, one clear view.</p>
+            <p className="mt-1.5 text-white/80">Drag a card to a new column. Every change is saved to MySQL.</p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 rounded-full border border-white/15 bg-black/25 px-4 py-2.5 text-sm text-white/70 backdrop-blur focus-within:border-amber">
               <Search size={16} />
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search company or role" className="w-44 bg-transparent text-white placeholder:text-white/50 focus:outline-none" />
             </label>
-            <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-xl transition hover:scale-[1.04]">
+            <button onClick={() => { setFormError(''); setOpen(true) }} className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-ink shadow-xl transition hover:scale-[1.04]">
               <Plus size={16} /> Add application
             </button>
           </div>
@@ -145,89 +156,112 @@ export default function Applications() {
         </div>
       </motion.div>
 
-      <div className="flex gap-4 overflow-x-auto pb-6">
-        {columns.map((c, ci) => {
-          const items = shown.filter(a => a.status === c.id)
-          const Icon = c.icon
-          return (
-            <motion.div
-              key={c.id}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + ci * 0.08 }}
-              onDragOver={e => { e.preventDefault(); setOver(c.id) }}
-              onDragLeave={() => setOver(null)}
-              onDrop={() => { if (dragId) move(dragId, c.id); setDragId(null); setOver(null) }}
-              className={`w-72 shrink-0 overflow-hidden rounded-3xl border border-line bg-gradient-to-b ${c.top} to-panel/80 p-4 shadow-xl transition ${c.glow} ${over === c.id ? `scale-[1.02] ring-2 ${c.ring}` : ''}`}
-            >
-              <div className={`mb-4 h-1.5 rounded-full ${c.bar}`} />
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-black/25 ${c.text}`}><Icon size={18} /></span>
-                  <h2 className="font-display text-lg font-bold text-white">{c.id}</h2>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${c.tint} ${c.text}`}>{items.length}</span>
-              </div>
+      {error && (
+        <p className="flex items-center gap-3 rounded-2xl border border-rose/30 bg-rose/10 px-5 py-4 text-sm text-rose">
+          <AlertTriangle size={18} className="shrink-0" />{error}
+        </p>
+      )}
 
-              <div className="min-h-28 space-y-3">
-                {items.map(a => {
-                  const idx = stages.indexOf(a.status)
-                  return (
-                    <motion.div key={a.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                      <div
-                        draggable
-                        onDragStart={() => setDragId(a.id)}
-                        onDragEnd={() => { setDragId(null); setOver(null) }}
-                        className={`group relative cursor-grab overflow-hidden rounded-2xl border border-line bg-ink/80 p-4 pl-5 transition hover:-translate-y-1 hover:border-white/25 hover:shadow-lg active:cursor-grabbing ${dragId === a.id ? 'rotate-2 opacity-40' : ''}`}
-                      >
-                        <span className={`absolute inset-y-0 left-0 w-1 ${c.side}`} />
-                        <div className="flex items-start gap-3">
-                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br font-display text-lg font-extrabold text-ink ${grads[a.company.charCodeAt(0) % grads.length]}`}>
-                            {a.company[0].toUpperCase()}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-semibold text-white">{a.company}</p>
-                            <p className="truncate text-sm text-mist">{a.role}</p>
-                          </div>
-                          <GripVertical size={16} className="text-line transition group-hover:text-mist" />
-                        </div>
+      {loading && (
+        <div className="flex items-center justify-center gap-4 rounded-3xl border border-line bg-panel/60 py-16">
+          <span className="h-8 w-8 animate-spin rounded-full border-4 border-line border-t-amber" />
+          <p className="font-display text-lg font-bold text-white">Loading your applications...</p>
+        </div>
+      )}
 
-                        <div className="mt-3 flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${modes[a.mode] || modes.Hybrid}`}>
-                            <MapPin size={11} />{a.mode || 'Hybrid'}
-                          </span>
-                          {a.status === 'Rejected' ? (
-                            <span className="rounded-full bg-rose/15 px-2.5 py-1 text-xs font-medium text-rose">Closed</span>
-                          ) : (
-                            <div className="flex items-center gap-1">
-                              {stages.map((s, i) => (
-                                <i key={s} className={`h-1.5 w-5 rounded-full ${i <= idx ? c.side : 'bg-line'}`} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+      {!loading && !error && total === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed border-line bg-panel/40 py-12 text-center">
+          <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber/15 text-amber"><Send size={26} /></span>
+          <p className="font-display text-xl font-bold text-white">Your board is empty</p>
+          <p className="max-w-xs text-sm text-mist">Click Add application to save your first one. It goes straight to your database.</p>
+        </div>
+      )}
 
-                        <div className="mt-3 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5 text-xs text-mist"><CalendarDays size={13} />{a.date}</span>
-                          <button onClick={() => remove(a.id)} aria-label="Delete application" className="text-mist transition hover:text-rose">
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-                {items.length === 0 && (
-                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line py-10 text-center text-xs text-mist">
-                    <Icon size={22} className={c.text} />
-                    Drop a card here
+      {!loading && (
+        <div className="flex gap-4 overflow-x-auto pb-6">
+          {columns.map((c, ci) => {
+            const items = shown.filter(a => a.status === c.id)
+            const Icon = c.icon
+            return (
+              <motion.div
+                key={c.id}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + ci * 0.08 }}
+                onDragOver={e => { e.preventDefault(); setOver(c.id) }}
+                onDragLeave={() => setOver(null)}
+                onDrop={() => { if (dragId) move(dragId, c.id); setDragId(null); setOver(null) }}
+                className={`w-72 shrink-0 overflow-hidden rounded-3xl border border-line bg-gradient-to-b ${c.top} to-panel/80 p-4 shadow-xl transition ${c.glow} ${over === c.id ? `scale-[1.02] ring-2 ${c.ring}` : ''}`}
+              >
+                <div className={`mb-4 h-1.5 rounded-full ${c.bar}`} />
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl bg-black/25 ${c.text}`}><Icon size={18} /></span>
+                    <h2 className="font-display text-lg font-bold text-white">{c.id}</h2>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          )
-        })}
-      </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${c.tint} ${c.text}`}>{items.length}</span>
+                </div>
+
+                <div className="min-h-28 space-y-3">
+                  {items.map(a => {
+                    const idx = stages.indexOf(a.status)
+                    return (
+                      <motion.div key={a.id} layout initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                        <div
+                          draggable
+                          onDragStart={() => setDragId(a.id)}
+                          onDragEnd={() => { setDragId(null); setOver(null) }}
+                          className={`group relative cursor-grab overflow-hidden rounded-2xl border border-line bg-ink/80 p-4 pl-5 transition hover:-translate-y-1 hover:border-white/25 hover:shadow-lg active:cursor-grabbing ${dragId === a.id ? 'rotate-2 opacity-40' : ''}`}
+                        >
+                          <span className={`absolute inset-y-0 left-0 w-1 ${c.side}`} />
+                          <div className="flex items-start gap-3">
+                            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br font-display text-lg font-extrabold text-ink ${grads[a.company.charCodeAt(0) % grads.length]}`}>
+                              {a.company[0].toUpperCase()}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-semibold text-white">{a.company}</p>
+                              <p className="truncate text-sm text-mist">{a.role}</p>
+                            </div>
+                            <GripVertical size={16} className="text-line transition group-hover:text-mist" />
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${modes[a.workMode] || modes.Hybrid}`}>
+                              <MapPin size={11} />{a.workMode || 'Hybrid'}
+                            </span>
+                            {a.status === 'Rejected' ? (
+                              <span className="rounded-full bg-rose/15 px-2.5 py-1 text-xs font-medium text-rose">Closed</span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                {stages.map((s, i) => (
+                                  <i key={s} className={`h-1.5 w-5 rounded-full ${i <= idx ? c.side : 'bg-line'}`} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5 text-xs text-mist"><CalendarDays size={13} />{fmt(a.appliedOn)}</span>
+                            <button onClick={() => remove(a.id)} aria-label="Delete application" className="text-mist transition hover:text-rose">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )
+                  })}
+                  {items.length === 0 && (
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line py-10 text-center text-xs text-mist">
+                      <Icon size={22} className={c.text} />
+                      Drop a card here
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
 
       <AnimatePresence>
         {toast && (
@@ -235,9 +269,9 @@ export default function Applications() {
             initial={{ opacity: 0, y: 40, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40 }}
-            className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-gradient-to-r from-mint to-sky px-7 py-3.5 text-sm font-semibold text-ink shadow-2xl"
+            className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full px-7 py-3.5 text-sm font-semibold shadow-2xl ${toast.bad ? 'bg-rose text-white' : 'bg-gradient-to-r from-mint to-sky text-ink'}`}
           >
-            {toast}
+            {toast.t}
           </motion.div>
         )}
       </AnimatePresence>
@@ -276,7 +310,10 @@ export default function Applications() {
                   </select>
                 </Field>
               </div>
-              <button className="w-full rounded-xl bg-gradient-to-r from-sun to-amber py-3.5 font-semibold text-ink transition hover:brightness-110">Add to board</button>
+              {formError && <p className="rounded-xl bg-rose/10 px-4 py-3 text-sm text-rose">{formError}</p>}
+              <button disabled={saving} className="w-full rounded-xl bg-gradient-to-r from-sun to-amber py-3.5 font-semibold text-ink transition hover:brightness-110 disabled:opacity-70">
+                {saving ? 'Saving...' : 'Add to board'}
+              </button>
             </motion.form>
           </motion.div>
         )}

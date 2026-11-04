@@ -8,7 +8,10 @@ import {
 import {
   Briefcase, BadgeCheck, CalendarClock, Trophy, Sparkles, ArrowUpRight,
   TrendingUp, Flame, Video, Lightbulb, Clock,
-} from 'lucide-react'
+}
+
+ from 'lucide-react'
+ import { getUser } from '../api.js'
 
 const C = 2 * Math.PI * 54
 
@@ -106,6 +109,7 @@ function Bar({ t, v, c, delay = 0 }) {
 
 export default function Dashboard() {
   const score = 82
+  const first = ((getUser() && getUser().fullName) || 'there').split(' ')[0]
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <motion.div {...fade(0)} className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-sun/35 via-violet/25 to-sky/25 p-7 sm:p-9">
@@ -117,7 +121,7 @@ export default function Dashboard() {
               <Flame size={14} /> 5-day activity streak
             </span>
             <h1 className="mt-4 font-display text-4xl font-extrabold text-white sm:text-5xl">
-              Welcome back <span className="shimmer">Pavani</span> 👋
+              Welcome back <span className="shimmer">{first}</span> 👋
             </h1>
             <p className="mt-2 max-w-md text-white/80">You have 2 interviews coming up. Your readiness score rose by 6 points this week.</p>
           </div>
