@@ -115,15 +115,31 @@ export default function ResumeAnalyzer() {
   const [drag, setDrag] = useState(false)
   const fileRef = useRef(null)
 
-  const readFile = file => {
+  const readFile = async file => {
     if (!file) return
     setFileName(file.name)
+    setNotice('')
     if (/\.txt$/i.test(file.name)) {
       const r = new FileReader()
-      r.onload = () => { setText(String(r.result)); setNotice('') }
+      r.onload = () => setText(String(r.result))
       r.readAsText(file)
-    } else {
-      setNotice('PDF reading connects to the Python service in the back-end step. For now, paste your resume text or load the sample.')
+      return
+    }
+    if (!/\.pdf$/i.test(file.name)) {
+      setNotice('Please upload a PDF or a .txt file.')
+      return
+    }
+    setNotice('Reading your PDF...')
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const res = await fetch('http://localhost:5000/parse', { method: 'POST', body })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not read this PDF.')
+      setText(data.text)
+      setNotice('')
+    } catch (e) {
+      setNotice(e.message === 'Failed to fetch' ? 'The resume service is not running. Start it with: python app.py' : e.message)
     }
   }
 
